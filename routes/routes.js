@@ -1,6 +1,7 @@
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const User = require("../models/user");
+const Fitness = require("../models/fitness");
 const bcrypt = require("bcrypt");
 const verifyJWT = require("../lib/verify-jwt");
 const router = express.Router();
@@ -12,16 +13,22 @@ router.get("/", (req, res) => {
 router.post("/register", async (req, res) => {
   const { email, password } = req.body;
 
-  const user = new User({
+  const user = await User.findOne({ email });
+
+  if (user._id) {
+    return res.status(400).json({ message: "email already exists" });
+  }
+
+  const newUser = new User({
     email,
     password: await bcrypt.hash(password, 10),
   });
 
-  await user.save();
+  await newUser.save();
 
-  const token = await jwt.sign({ id: user._id }, process.env.JWT_SECRET);
+  const token = await jwt.sign({ id: newUser._id }, process.env.JWT_SECRET);
 
-  res.json({ token });
+  res.json({ message: "success" });
 });
 
 router.post("/login", async (req, res) => {
@@ -43,7 +50,7 @@ router.post("/login", async (req, res) => {
     expiresIn: "7d",
   });
 
-  res.json({ token });
+  res.json({ token, message: "success" });
 });
 
 // Get a user profile
@@ -51,26 +58,70 @@ router.get("/profile", verifyJWT, async (req, res) => {
   const user = await User.findById(req.user.id);
 
   res.json({
-    email: user.email,
-    firstName: user.firstName || "",
-    lastName: user.lastName || "",
-    dateOfBirth: user.dateOfBirth || "",
-    profilePicture: user.profilePicture || "",
+    user: {
+      email: user.email,
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
+      dateOfBirth: user.dateOfBirth || "",
+      profilePicture: user.profilePicture || "",
+    },
+    message: "success",
   });
 });
 
 // Update a user profile
 router.post("/profile", verifyJWT, async (req, res) => {
-  const user = await User.findById(req.user.id);
+  try {
+    const user = await User.findById(req.user.id);
 
-  user.firstName = req.body.firstName;
-  user.lastName = req.body.lastName;
-  user.dateOfBirth = req.body.dateOfBirth;
-  user.profilePicture = req.body.profilePicture;
+    user.firstName = req.body.firstName;
+    user.lastName = req.body.lastName;
+    user.dateOfBirth = req.body.dateOfBirth;
+    user.profilePicture = req.body.profilePicture;
 
-  await user.save();
+    await user.save();
 
-  res.json({ message: "Profile updated successfully" });
+    res.json({ message: "Profile updated successfully" });
+  } catch (error) {
+    res.status(400).json({
+      results: error.message,
+      message: "failure",
+    });
+  }
+});
+
+router.get("/fitness", verifyJWT, async (req, res) => {
+  const fitnessTips = await Fitness.find();
+
+  res.json({ results: fitnessTips, message: "success" });
+});
+
+router.post("/fitness", verifyJWT, async (req, res) => {
+  try {
+    const fitnessTips = new Fitness({
+      name: req.body.name,
+      tips: req.body.tips,
+      type: req.body.type,
+    });
+
+    const result = await fitnessTips.save();
+
+    res.json({
+      results: { name: result.name, tips: result.tips },
+      message: "success",
+    });
+  } catch (error) {
+    res.status(400).json({
+      results: error.message,
+      message: "failure",
+    });
+  }
+});
+
+router.get("/reset", verifyJWT, async (req, res) => {
+  await Fitness.deleteMany();
+  await User.deleteMany();
+  res.json({ message: "success" });
 });
 
 router.get("/protected", verifyJWT, (req, res) => {
