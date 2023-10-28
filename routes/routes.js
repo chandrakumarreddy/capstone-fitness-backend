@@ -2,6 +2,7 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const User = require("../models/user");
 const Fitness = require("../models/fitness");
+const FitnessVideos = require("../models/fitnessVideos");
 const bcrypt = require("bcrypt");
 const verifyJWT = require("../lib/verify-jwt");
 const router = express.Router();
@@ -46,7 +47,7 @@ router.post("/login", async (req, res) => {
     return res.status(401).json({ message: "Invalid username or password" });
   }
 
-  const token = await jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+  const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
     expiresIn: "7d",
   });
 
@@ -56,7 +57,6 @@ router.post("/login", async (req, res) => {
 // Get a user profile
 router.get("/profile", verifyJWT, async (req, res) => {
   const user = await User.findById(req.user.id);
-
   res.json({
     user: {
       email: user.email,
@@ -76,8 +76,8 @@ router.post("/profile", verifyJWT, async (req, res) => {
 
     user.firstName = req.body.firstName;
     user.lastName = req.body.lastName;
-    user.dateOfBirth = req.body.dateOfBirth;
-    user.profilePicture = req.body.profilePicture;
+    // user.dateOfBirth = req.body.dateOfBirth;
+    // user.profilePicture = req.body.profilePicture;
 
     await user.save();
 
@@ -91,23 +91,41 @@ router.post("/profile", verifyJWT, async (req, res) => {
 });
 
 router.get("/fitness", verifyJWT, async (req, res) => {
-  const fitnessTips = await Fitness.find();
+  const type = req.query.type;
+  let result;
+  if (type === "videos") {
+    result = await FitnessVideos.find();
+  } else {
+    result = await Fitness.find();
+  }
 
-  res.json({ results: fitnessTips, message: "success" });
+  res.json({ results: result, message: "success" });
+});
+
+router.get("/fitness/:fitnessId", verifyJWT, async (req, res) => {
+  const fitnessTip = await Fitness.findById(req.params.fitnessId);
+
+  res.json({ result: fitnessTip, message: "success" });
 });
 
 router.post("/fitness", verifyJWT, async (req, res) => {
+  const type = req.query.type;
   try {
-    const fitnessTips = new Fitness({
-      name: req.body.name,
-      tips: req.body.tips,
-      type: req.body.type,
-    });
-
-    const result = await fitnessTips.save();
+    let result, fitnessTips;
+    if (type === "videos") {
+      fitnessTips = new FitnessVideos({
+        title: req.body.title,
+        link: req.body.link,
+      });
+    } else {
+      fitnessTips = new Fitness({
+        title: req.body.title,
+      });
+    }
+    result = await fitnessTips.save();
 
     res.json({
-      results: { name: result.name, tips: result.tips },
+      result: { title: result.title },
       message: "success",
     });
   } catch (error) {
@@ -115,6 +133,49 @@ router.post("/fitness", verifyJWT, async (req, res) => {
       results: error.message,
       message: "failure",
     });
+  }
+});
+
+router.post("/fitness/:fitnessId/tips", async (req, res) => {
+  try {
+    const { text } = req.body;
+    const fitnessId = req.params.fitnessId;
+    const fitness = await Fitness.findById(fitnessId);
+    if (!fitness) {
+      return res.status(404).json({ error: "Fitness tip not found" });
+    }
+    fitness.tips.push({ text });
+    await fitness.save();
+    res.json({ message: "success", result: { text } });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+router.post("/fitness/:fitnessId/tips/:tipId/like", async (req, res) => {
+  try {
+    const fitnessId = req.params.fitnessId;
+    const tipId = req.params.tipId;
+    const { liked } = req.body;
+    const fitness = await Fitness.findById(fitnessId);
+    if (!fitness) {
+      return res.status(404).json({ error: "Fitness not found" });
+    }
+    const tip = fitness.tips.id(tipId);
+    if (!tip) {
+      return res.status(404).json({ error: "Tip not found" });
+    }
+    if (liked) {
+      tip.likes += 1;
+    } else {
+      tip.dislikes += 1;
+    }
+    await fitness.save();
+    res.json(tip);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
