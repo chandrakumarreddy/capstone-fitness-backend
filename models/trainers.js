@@ -3,7 +3,6 @@ const mongoose = require("mongoose");
 const SlotSchema = new mongoose.Schema({
   type: {
     type: String,
-    required: true,
   },
 });
 
