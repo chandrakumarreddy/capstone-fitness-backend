@@ -224,4 +224,39 @@ router.get("/protected", verifyJWT, (req, res) => {
   res.json({ message: "Hello, world!" });
 });
 
+router.post("/chat", async (req, res) => {
+  const { message } = req.body;
+  try {
+    const response = await fetch(
+      "https://api.ai21.com/studio/v1/j2-ultra/chat",
+      {
+        method: "post",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+          Authorization: `Bearer ${process.env.AI21_KEY}`,
+        },
+        body: JSON.stringify({
+          numResults: 1,
+          temperature: 0.7,
+          messages: [
+            {
+              text: message,
+              role: "user",
+            },
+          ],
+          system:
+            "You are an AI assistant for Fitness and yoga training tips. Your responses should be informative and concise.",
+        }),
+      }
+    );
+    const json = await response.json();
+
+    res.json({ message: json.outputs[0].text });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 module.exports = router;
