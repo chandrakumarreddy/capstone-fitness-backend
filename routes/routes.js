@@ -2,6 +2,7 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const User = require("../models/user");
 const Fitness = require("../models/fitness");
+const Trainers = require("../models/trainers");
 const FitnessVideos = require("../models/fitnessVideos");
 const bcrypt = require("bcrypt");
 const verifyJWT = require("../lib/verify-jwt");
@@ -183,6 +184,40 @@ router.get("/reset", verifyJWT, async (req, res) => {
   await Fitness.deleteMany();
   await User.deleteMany();
   res.json({ message: "success" });
+});
+
+router.get("/trainer/:id", verifyJWT, async (req, res) => {
+  const { id } = req.params;
+  const trainer = await Trainers.findOne({ id });
+  if (trainer) {
+    res.json({ message: "success", result: { trainer } });
+  } else {
+    const newTrainer = new Trainers({
+      id,
+      slots: [],
+    });
+    await newTrainer.save();
+    res.json({ message: "success", result: { trainer: newTrainer } });
+    res.status(404).json({ error: "Trainer not found" });
+  }
+});
+
+router.post("/trainer/:id", verifyJWT, async (req, res) => {
+  const { id } = req.params;
+  const { slot } = res.body();
+  const trainer = await Trainers.findOne({ id });
+  if (trainer) {
+    trainer.slots.push(slot);
+    await trainer.save();
+    res.json({ message: "success", result: { trainer } });
+  } else {
+    const newTrainer = new Trainers({
+      id,
+      slots: [slot],
+    });
+    await newTrainer.save();
+    res.json({ message: "success", result: { trainer: newTrainer } });
+  }
 });
 
 router.get("/protected", verifyJWT, (req, res) => {
