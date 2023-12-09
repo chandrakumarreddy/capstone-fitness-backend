@@ -5,7 +5,10 @@ const mongoose = require("mongoose");
 const mongoString = process.env.DATABASE_URL;
 
 const PORT = process.env.PORT || 3000;
-mongoose.connect(mongoString);
+mongoose.connect(mongoString, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
 const database = mongoose.connection;
 
 database.on("error", (error) => {

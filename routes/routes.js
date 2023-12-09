@@ -3,13 +3,40 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/user");
 const Fitness = require("../models/fitness");
 const Trainers = require("../models/trainers");
+const Streak = require("../models/streaks");
 const FitnessVideos = require("../models/fitnessVideos");
 const bcrypt = require("bcrypt");
 const verifyJWT = require("../lib/verify-jwt");
 const router = express.Router();
 const axios = require("axios");
 
-router.get("/", (req, res) => {
+async function createStreak(userId) {
+  const newStreak = new Streak({
+    user_id: userId,
+  });
+  await newStreak.save();
+}
+
+async function updateStreak(userId, completed = true) {
+  const streak = await Streak.findOne({ user_id: userId });
+  if (streak) {
+    streak.last_updated = Date.now();
+    if (completed) {
+      streak.current_streak++;
+      streak.longest_streak = Math.max(
+        streak.current_streak,
+        streak.longest_streak
+      );
+      streak.streak_history.push({ date: Date.now(), completed: true });
+    } else {
+      streak.current_streak = 0;
+      streak.streak_history.push({ date: Date.now(), completed: false });
+    }
+    await streak.save();
+  }
+}
+
+router.get("/", (res) => {
   res.send("working");
 });
 
@@ -28,6 +55,8 @@ router.post("/register", async (req, res) => {
   });
 
   await newUser.save();
+
+  await createStreak(newUser._id);
 
   const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET);
 
@@ -153,6 +182,19 @@ router.post("/fitness/:fitnessId/tips", async (req, res) => {
     console.error(error);
     res.status(500).json({ error: "Internal Server Error" });
   }
+});
+
+router.get("/streaks", verifyJWT, async (req, res) => {
+  let streaks = await Streak.findOne({ user_id: req.user.id });
+  if (!streaks) {
+    streaks = await createStreak(req.user.id);
+  }
+  res.status(200).json({ message: "Streak completed", result: streaks });
+});
+
+router.post("/streaks", verifyJWT, async (req, res) => {
+  await updateStreak(req.user.id);
+  res.status(200).json({ message: "Streak completed" });
 });
 
 router.post("/fitness/:fitnessId/tips/:tipId/like", async (req, res) => {
