@@ -7,6 +7,7 @@ const FitnessVideos = require("../models/fitnessVideos");
 const bcrypt = require("bcrypt");
 const verifyJWT = require("../lib/verify-jwt");
 const router = express.Router();
+const fetch = require("node-fetch");
 
 router.get("/", (req, res) => {
   res.send("working");
