@@ -9,6 +9,7 @@ const bcrypt = require("bcrypt");
 const verifyJWT = require("../lib/verify-jwt");
 const router = express.Router();
 const axios = require("axios");
+const dayjs = require("dayjs");
 
 async function createStreak(userId) {
   const newStreak = new Streak({
@@ -20,6 +21,11 @@ async function createStreak(userId) {
 async function updateStreak(userId, completed = true) {
   const streak = await Streak.findOne({ user_id: userId });
   if (streak) {
+    const isStreakCompletedForToday = streak.streak_history.find(
+      (item) =>
+        dayjs(item.date).format("DD/MM/YYYY") === dayjs().format("DD/MM/YYYY")
+    );
+    if (isStreakCompletedForToday) return;
     streak.last_updated = Date.now();
     if (completed) {
       streak.current_streak++;
