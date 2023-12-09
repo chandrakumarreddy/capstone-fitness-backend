@@ -204,7 +204,7 @@ router.get("/trainer/:id", verifyJWT, async (req, res) => {
 
 router.post("/trainer/:id", verifyJWT, async (req, res) => {
   const { id } = req.params;
-  const { slot } = res.body();
+  const { slot } = res.body;
   const trainer = await Trainers.findOne({ id });
   if (trainer) {
     trainer.slots.push(slot);
