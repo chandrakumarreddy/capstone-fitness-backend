@@ -7,7 +7,7 @@ const FitnessVideos = require("../models/fitnessVideos");
 const bcrypt = require("bcrypt");
 const verifyJWT = require("../lib/verify-jwt");
 const router = express.Router();
-const fetch = require("node-fetch");
+const axios = require("axios");
 
 router.get("/", (req, res) => {
   res.send("working");
@@ -228,30 +228,29 @@ router.get("/protected", verifyJWT, (req, res) => {
 router.post("/chat", async (req, res) => {
   const { message } = req.body;
   try {
-    const response = await fetch(
+    const response = await axios.post(
       "https://api.ai21.com/studio/v1/j2-ultra/chat",
       {
-        method: "post",
+        numResults: 1,
+        temperature: 0.7,
+        messages: [
+          {
+            text: message,
+            role: "user",
+          },
+        ],
+        system:
+          "You are an AI assistant for Fitness and yoga training tips. Your responses should be informative and concise.",
+      },
+      {
         headers: {
           accept: "application/json",
           "content-type": "application/json",
           Authorization: `Bearer ${process.env.AI21_KEY}`,
         },
-        body: JSON.stringify({
-          numResults: 1,
-          temperature: 0.7,
-          messages: [
-            {
-              text: message,
-              role: "user",
-            },
-          ],
-          system:
-            "You are an AI assistant for Fitness and yoga training tips. Your responses should be informative and concise.",
-        }),
       }
     );
-    const json = await response.json();
+    const json = await response.data;
 
     res.json({ message: json.outputs[0].text });
   } catch (error) {
